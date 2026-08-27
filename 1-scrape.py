@@ -447,12 +447,21 @@ def collect_class(seeds, label, target_count):
     Scrape seeds for one class until target_count successful samples
     are collected or the seed list is exhausted. Returns count collected.
     """
+    import random
+
+    # shuffle seeds before crawling to introduce some variation
+    log.info("****** Seed shuffling start ******")
+    random.seed(42)     # for reproducibility
+    shuffled_seeds = list(seeds)
+    random.shuffle(shuffled_seeds)
+    log.info("****** Seed shuffling done ******")
+
     collected = 0
     discarded = 0
     rows = []
 
-    with futures.ThreadPoolExecutor(max_workers=8) as executor:
-        future_to_seed = {executor.submit(scrape_one, seed, label): seed for seed in seeds}
+    with futures.ThreadPoolExecutor(max_workers=16) as executor:
+        future_to_seed = {executor.submit(scrape_one, seed, label): seed for seed in shuffled_seeds}
         try:
             for future in futures.as_completed(future_to_seed):
                 seed = future_to_seed[future]
