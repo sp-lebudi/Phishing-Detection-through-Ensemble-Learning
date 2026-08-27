@@ -37,7 +37,7 @@ LOG_PATH = "logs/scrape.log"
 # DATA SOURCES
 # Phishing.Database: raw active phishing links feed
 # maintained on GitHub by Mitchell Krogza etc.
-PHISHING_DATABASE_ACTIVE_URL = "https://github.com/Phishing-Database/Phishing.Database/blob/master/phishing-links-ACTIVE/phishing-links-ACTIVE1.txt"
+PHISHING_DATABASE_ACTIVE_URL = "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-links-ACTIVE/phishing-links-ACTIVE1.txt"
 
 # OpenPhish community feed: refreshed every ~12h
 # capped around a ~300 URL per refresh
@@ -115,7 +115,7 @@ def get_phishing_db_urls(limit=None):
         if limit and len(out) >= limit:
             break
 
-    log.info(f"Phishing.Database feed returne {len(out)} active seed URLs.")
+    log.info(f"Phishing.Database feed returned {len(out)} active seed URLs.")
     return out
 
 def get_openphish_urls(limit=None):
