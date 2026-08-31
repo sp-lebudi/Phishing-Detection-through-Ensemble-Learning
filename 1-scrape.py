@@ -19,7 +19,6 @@ import os
 import io
 import socket
 import ssl
-import time
 import whois
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -27,6 +26,10 @@ from tranco import Tranco
 
 import requests
 from bs4 import BeautifulSoup
+
+#  universal retry handling
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 # DIRECTORIES
 RAW_DIR = "data/raw"
@@ -51,15 +54,17 @@ PHISHTANK_CSV_URL = "http://data.phishtank.com/data/online-valid.csv"
 PHISHSTATS_FEED_URL = "https://phishstats.info/api/phishing"
 PHISHSTATS_API_KEY = os.environ.get("PHISHSTATS_API_KEY") # set API key via environment variable
 
-# seconds, per-request
-REQUEST_TIMEOUT = 8
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 "
-    "PhishingResearchBot/1.0 (+honours-thesis; static-analysis-only)"
-)
-HEADERS = {"User-Agent": USER_AGENT}
-
+# requests initialisation and time out configs
+session = requests.Session()
+retries = Retry(total=2, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+session.mount("https://", HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
+REQUEST_TIMEOUT = (3.0, 8.0)
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 # rate-limiting
 MIN_DELAY_BETWEEN_REQUESTS = 0.5
 
@@ -130,6 +135,7 @@ def get_openphish_urls(limit=None):
         resp.raise_for_status()
     except Exception as e:
         log.info(f"Failed to fetch from OpenPhish ({e})")
+        return []
 
     now_iso = datetime.now(timezone.utc).isoformat()
     out = []
@@ -348,6 +354,22 @@ def dedupe_seeds(seeds):
         log.info(f"Discarder {len(malformed_records)} malformed URLs. Logged to {MALFORMED_LOG_PATH}")
     return out
 
+def fetch_url_with_fallback(url, session):
+    """
+    Attempt to fetch URL using HTTPS
+    Fall back to HTTP if SSL/connection fails
+    """
+    try:
+        return session.get(url, headers=HEADERS, 
+                           timeout=REQUEST_TIMEOUT, 
+                           allow_redirects=True)
+    except (requests.exceptions.SSLError, requests.exceptions.ConnectionError):
+        if url.startswith("https://"):
+            fallback_url = url.replace("https://", "http://", 1)
+            return session.get(fallback_url, headers=HEADERS, 
+                               timeout=REQUEST_TIMEOUT, 
+                               allow_redirects=True)
+
 def scrape_one(seed, label):
     """
     Attempt to fetch seed URL and write static metadata, raw HTML, and scripts to disk
@@ -361,14 +383,12 @@ def scrape_one(seed, label):
         return None
 
     try:
-        resp = requests.get(url, headers=HEADERS, 
-                            timeout=REQUEST_TIMEOUT, 
-                            allow_redirects=True
-                            )
+        # use helper function with fallback
+        resp = fetch_url_with_fallback(url, session)
     except requests.exceptions.RequestException as e:
-        log.info(f"[discard] {label} {url} -> connection error: {e}")
+        log.info(f"[discard] {label} {url} - > connection error {e}")
         return None
-
+    
     if resp.status_code != 200:
         log.info(f"[discard] {label} {url} -> HTTP {resp.status_code}")
         return None
@@ -460,8 +480,8 @@ def collect_class(seeds, label, target_count):
     discarded = 0
     rows = []
 
-    with futures.ThreadPoolExecutor(max_workers=16) as executor:
-        future_to_seed = {executor.submit(scrape_one, seed, label): seed for seed in shuffled_seeds}
+    with futures.ThreadPoolExecutor(max_workers=32) as executor:
+        future_to_seed = {executor.submit(scrape_one, seed, label): seed for seed in seeds}
         try:
             for future in futures.as_completed(future_to_seed):
                 seed = future_to_seed[future]
@@ -477,7 +497,6 @@ def collect_class(seeds, label, target_count):
                     discarded += 1
                 if collected >= target_count:
                     break
-                time.sleep(MIN_DELAY_BETWEEN_REQUESTS)
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
 
