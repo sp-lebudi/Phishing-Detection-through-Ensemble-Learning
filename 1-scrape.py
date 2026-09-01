@@ -57,17 +57,21 @@ PHISHSTATS_API_KEY = os.environ.get("PHISHSTATS_API_KEY") # set API key via envi
 
 # requests initialisation and time out configs
 session = requests.Session()
-retries = Retry(total=2, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+retries = Retry(total=2, 
+                backoff_factor=1.0, 
+                status_forcelist=[408, 429, 500, 502, 503, 504],
+                allowed_methods=["GET", "HEAD"],
+                raise_on_status=False)
 session.mount("https://", HTTPAdapter(max_retries=retries))
 session.mount("http://", HTTPAdapter(max_retries=retries))
-REQUEST_TIMEOUT = (3.0, 8.0)
+REQUEST_TIMEOUT = (10.0, 30.0)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
 # rate-limiting
-MIN_DELAY_BETWEEN_REQUESTS = 0.5
+MIN_DELAY_BETWEEN_REQUESTS = 1.0
 
 os.makedirs(RAW_DIR, exist_ok=True)
 os.makedirs("logs", exist_ok=True)
