@@ -52,7 +52,7 @@ PHISHTANK_CSV_URL = "http://data.phishtank.com/data/online-valid.csv"
 
 # PhishStats: JSON API of scored phishing APIs, requires an API key
 # sent via the X-API-Key header. Refreshes every ~90 minutes.
-PHISHSTATS_FEED_URL = "https://phishstats.info/api/phishing"
+PHISHSTATS_FEED_URL = "https://api.phishstats.info/api/phishing?_size=100"
 PHISHSTATS_API_KEY = os.environ.get("PHISHSTATS_API_KEY") # set API key via environment variable
 
 # requests initialisation and time out configs
