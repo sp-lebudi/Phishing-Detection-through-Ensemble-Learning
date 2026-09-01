@@ -20,6 +20,7 @@ import io
 import socket
 import ssl
 import whois
+import sys
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from tranco import Tranco
@@ -72,10 +73,13 @@ os.makedirs(RAW_DIR, exist_ok=True)
 os.makedirs("logs", exist_ok=True)
 
 # logging configuration and initialisation
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.flush = sys.stdout.flush
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler(LOG_PATH), logging.StreamHandler()],
+    handlers=[logging.FileHandler(LOG_PATH), stream_handler],
+    force=True,
 )
 log = logging.getLogger(__name__)
 
@@ -570,4 +574,8 @@ def main():
     log.info(f"Manifest written to {MANIFEST_PATH}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        log.info("********** SCRIPT EXECUTION STARTED **********")
+        main()
+    except Exception as e:
+        log.exception(f"Fatal error during script execution: {e}")
