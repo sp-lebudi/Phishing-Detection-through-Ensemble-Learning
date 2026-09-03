@@ -45,7 +45,7 @@ PHISHING_DATABASE_ACTIVE_URL = "https://raw.githubusercontent.com/Phishing-Datab
 
 # OpenPhish community feed: refreshed every ~12h
 # capped around a ~300 URL per refresh
-OPENPHISH_FEED_URL = "https://openphish.com/feed.txt"
+OPENPHISH_FEED_URL = "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt"
 
 # PhishTank: bulk csv dump of currently-valid phishing URLs
 PHISHTANK_CSV_URL = "http://data.phishtank.com/data/online-valid.csv"
